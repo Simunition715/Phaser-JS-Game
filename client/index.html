@@ -1,0 +1,322 @@
+
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+    <title>Galaxy Code Wars</title>
+	<script type="text/javascript" src="phaser/build/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            margin-top: 80px;
+            margin-bottom: 80px;
+            background-color: black;
+        }
+        #Title {
+        	color: red;
+        	font-family: Helvetica;
+        	font-size: 60px;
+        	margin: 0 auto;
+        	margin-left: 30%
+        }
+
+
+    </style>
+</head>
+<body>
+<h1 id="Title">Galaxy Code Wars</h1>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+function preload() {
+
+    game.load.image('sky', 'assets/sky.png');
+    game.load.image('asteroid', 'assets/asteroids.png');    
+    game.load.image('ground', 'assets/platform.png');
+    game.load.image('star', 'assets/star.png');
+    game.load.image('ship', 'assets/ship.png');
+    game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+    game.load.image('bullet', 'assets/bullet.png');
+    game.load.image('bg', 'assets/new.png');
+    game.load.audio('blaster', 'assets/audio/SoundEffects/blaster.mp3');
+    game.load.audio('explode', 'assets/audio/SoundEffects/sentry_explode.wav');
+	game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+	game.scale.pageAlignHorizontally = true;
+  	game.scale.pageAlignVertically = true;
+  	game.stage.smoothed = false;
+	 
+} 
+
+
+var player;
+var platforms;
+var cursors;
+
+var stars;
+var life = 10;
+var score = 0;
+var restart = "";
+var scoreText;
+var lifeText;
+var restartText;
+var sprite;
+var weapon;
+var fireButton;
+var bullet = weapon;
+
+
+function create() {
+    weapon = game.add.weapon(10, 'bullet');
+
+    //  The bullet will be automatically killed when it leaves the world bounds
+    weapon.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+
+    //  Because our bullet is drawn facing up, we need to offset its rotation:
+    weapon.bulletAngleOffset = 90;
+
+    //  The speed at which the bullet is fired
+    weapon.bulletSpeed = 400;
+
+    //  Speed-up the rate of fire, allowing them to shoot 1 bullet every 60ms
+    weapon.fireRate = 1;
+
+    //  Add a variance to the bullet angle by +- this value
+    weapon.bulletAngleVariance = 40;
+
+    //  We're going to be using physics, so enable the Arcade Physics system
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+
+    //  A simple background for our game
+    game.add.sprite(0, 0, 'sky');
+
+    //  The platforms group contains the ground and the 2 ledges we can jump on
+    platforms = game.add.group();
+
+    //  We will enable physics for any object that is created in this group
+    platforms.enableBody = true;
+
+    // Here we create the ground.
+    var ground = platforms.create(0, game.world.height - 0, 'ground');
+
+    //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
+    ground.scale.setTo(2, 2);
+
+    //  This stops it from falling away when you jump on it
+    ground.body.immovable = true;
+
+    // The player and its settings
+    player = game.add.sprite(190, game.world.height - 20, 'ship');
+    weapon = game.add.weapon(20, 'bullet');
+    blaster = game.add.audio('blaster');
+    explode = game.add.audio('explode')
+
+    //  We need to enable physics on the player
+    game.physics.arcade.enable(player);
+    game.physics.arcade.enable(weapon);
+
+
+
+    //  Player physics properties. Give the little guy a slight bounce.
+    player.body.bounce.y = 0.0;
+    // player.body.gravity.y = 0;
+    player.body.collideWorldBounds = true;
+
+
+    //  Our two animations, walking left and right.
+
+
+    //  Finally some stars to collect
+    stars = game.add.group();
+
+
+    //  We will enable physics for any star that is created in this group
+    stars.enableBody = true;
+
+    //  Here we'll create 12 of them evenly spaced apart
+    // for (var i = 0; i < 12; i++)
+    // {
+	
+    //     //  Create a star inside of the 'stars' group
+    //     var star = stars.create(i * 70, 0, 'asteroid');
+
+    //     //  Let gravity do its thing
+    //     star.body.gravity.y = 150;
+
+    //     //  This just gives each star a slightly random bounce value
+    //     star.body.bounce.y = 0.7 + Math.random() * 0.2;
+    // }
+    var y = 80;
+
+    for (var i = 0; i < 12; i++)
+    {
+        var star = stars.create(game.world.randomX, y, 'asteroid');
+        star.body.velocity.y = game.rnd.between(50, 400);
+
+        y += 90;
+    }
+
+
+
+    //  The score
+    lifeText = game.add.text(16, 16, 'Lives: 10', {color: 'red', fontSize: '32px', fill: '#FF0000' });
+    scoreText = game.add.text(16, 52, 'Score: 0', {color: 'red', fontSize: '32px', fill: '#FF0000' });
+    restartText = game.add.text(100, 200, "", {color: 'red', fontSize: '40px', fill: '#FF0000' });
+
+
+    //  Our controls.
+    weapon.trackSprite(player, 30, 0);
+    cursors = game.input.keyboard.createCursorKeys();
+    fireButton = game.input.keyboard.addKey(Phaser.KeyCode.SPACEBAR);
+    
+}
+function checkPos (star) {
+
+    if (star.y > 600)
+    {
+        star.y = 0;
+    }
+
+}
+function createBullet (){
+	var y = 0;
+    var star = stars.create(game.world.randomX, y, 'asteroid');
+        star.body.velocity.y = game.rnd.between(50, 400);
+        y += 90;
+    }
+function collisionHandler (player, star) {
+	// if(star.body.velocity.y < 100){
+ //    	game.physics.arcade.collide(stars, player = false);	
+ //    }
+
+	life -= 1;
+	star.y = 0;
+
+    lifeText.text = 'Lives: ' + life;
+	if(life < 1){
+		lifeText.text = "Last Life";
+	}
+	if(life < 0){
+		lifeText.text = "Game Over";
+	}	
+	if(lifeText.text == "Game Over"){
+		restartText.text = "Refresh the page to play again!"
+		stars = null;
+
+	}
+
+
+    player.x = 400;
+    player.y = 500;
+
+}
+
+function bulletHitEnemy (star, bullet) {
+	score += 10;
+	scoreText.text = 'Score: ' + score;
+    console.log('collision');
+    createBullet();
+    bullet.kill();
+    star.kill();
+    explode.play();
+
+}
+
+function update() {
+
+	stars.forEach(checkPos, this);
+
+    game.physics.arcade.overlap(player, stars, collisionHandler, null, this);
+    game.physics.arcade.collide(weapon.bullets, stars, bulletHitEnemy, null, this);
+
+    player.body.velocity.x = 0;
+    player.body.velocity.y = 0;
+
+    //  Collide the player and the stars with the platforms
+
+    game.physics.arcade.collide(player, platforms);
+    // game.physics.arcade.collide(stars, platforms);
+    game.physics.arcade.collide(stars, player);
+    // game.physics.arcade.collide(stars, bullet);
+
+    //  Checks to see if the player overlaps with any of the stars, if he does call the collectStar function
+    game.physics.arcade.overlap(weapon, stars, null, this);
+
+    //  Reset the players velocity (movement)
+    player.body.velocity.x = 0;
+
+    if (cursors.left.isDown)
+    {
+        //  Move to the left
+        player.body.velocity.x = -350;
+
+
+    }
+    else if (cursors.right.isDown)
+    {
+        //  Move to the right
+        player.body.velocity.x = 350;
+
+
+    }
+    else if (cursors.up.isDown)
+    {
+        //  Move to the right
+        player.body.velocity.y = -350;
+
+    }
+        else if (cursors.down.isDown)
+    {
+        //  Move to the right
+        player.body.velocity.y = 350;
+
+    }
+    else   	
+    {
+        //  Stand still
+        player.animations.stop();
+
+        player.frame = 4;
+    }
+    
+    //  Allow the player to jump if they are touching the ground.
+    if (cursors.up.isDown && player.body.touching.down)
+    {
+        player.body.velocity.y = -350;
+    }
+    if (fireButton.isDown)
+    {
+        weapon.fire();
+        blaster.play();
+    }
+
+
+
+}
+//  function laserHitMeteor (star, star) {
+
+// 	stars.remove(star, true);
+// }
+
+// function killAstroid (bullet, star) {
+// 	console.log(bullet);
+    
+//     Removes the star from the screen
+//     star.kill();
+
+//     //  Add and update the score
+//     score += 10;
+//     scoreText.text = 'Score: ' + score;
+
+// }
+// function render() {
+
+//     weapon.debug();
+
+// }
+
+</script>
+
+</body>
+</html>
